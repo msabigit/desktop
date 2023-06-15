@@ -1153,7 +1153,7 @@ export class List extends React.Component<IListProps, IListState> {
   }
 
   private getSectionGridRenderer =
-    (width: number, height: number) => (params: IRowRendererParams) => {
+    (width: number) => (params: IRowRendererParams) => {
       const section = params.rowIndex
 
       // The currently selected list item is focusable but if there's no focused
@@ -1169,7 +1169,7 @@ export class List extends React.Component<IListProps, IListState> {
               this.props.selectedRows[this.props.selectedRows.length - 1]
             )
           : undefined
-
+      const height = this.getSectionHeight(section)
       const containerProps = this.getContainerProps(activeDescendant)
       return (
         <Grid
@@ -1196,19 +1196,26 @@ export class List extends React.Component<IListProps, IListState> {
       )
     }
 
-  private get totalHeight() {
-    let totalHeight = 0
-    for (const section of this.props.rowCount) {
-      if (typeof this.props.rowHeight === 'number') {
-        totalHeight += section * this.props.rowHeight
-      } else {
-        const rows = this.props.rowCount[section]
-        for (let i = 0; i < rows; i++) {
-          totalHeight += this.props.rowHeight({ index: { section, row: i } })
-        }
-      }
+  private getSectionHeight(section: number) {
+    if (typeof this.props.rowHeight === 'number') {
+      return this.props.rowCount[section] * this.props.rowHeight
     }
-    return totalHeight
+
+    let height = 0
+    for (let i = 0; i < this.props.rowCount[section]; i++) {
+      height += this.props.rowHeight({ index: { section, row: i } })
+    }
+    return height
+  }
+
+  private get totalHeight() {
+    return this.props.rowCount.reduce((total, _count, section) => {
+      return total + this.getSectionHeight(section)
+    })
+  }
+
+  private sectionHeight = ({ index }: Index) => {
+    return this.getSectionHeight(index)
   }
 
   /**
@@ -1236,8 +1243,8 @@ export class List extends React.Component<IListProps, IListState> {
           columnWidth={width}
           columnCount={1}
           rowCount={this.props.rowCount.length}
-          rowHeight={this.totalHeight}
-          cellRenderer={this.getSectionGridRenderer(width, height)}
+          rowHeight={this.sectionHeight}
+          cellRenderer={this.getSectionGridRenderer(width)}
           onScroll={this.onScroll}
           scrollTop={this.props.setScrollTop}
           overscanRowCount={4}
@@ -1263,18 +1270,6 @@ export class List extends React.Component<IListProps, IListState> {
    *
    */
   private renderFakeScroll(height: number) {
-    let totalHeight: number = 0
-
-    if (typeof this.props.rowHeight === 'number') {
-      totalHeight = this.props.rowHeight * this.totalRowCount
-    } else {
-      for (let i = 0; i < this.props.rowCount.length; i++) {
-        for (let j = 0; j < this.props.rowCount[i]; j++) {
-          totalHeight += this.props.rowHeight({ index: { section: i, row: j } })
-        }
-      }
-    }
-
     return (
       <div
         className="fake-scroll"
@@ -1282,7 +1277,7 @@ export class List extends React.Component<IListProps, IListState> {
         style={{ height }}
         onScroll={this.onFakeScroll}
       >
-        <div style={{ height: totalHeight, pointerEvents: 'none' }} />
+        <div style={{ height: this.totalHeight, pointerEvents: 'none' }} />
       </div>
     )
   }
